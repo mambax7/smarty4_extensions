@@ -1,0 +1,343 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Xoops\SmartyExtensions\Test\Extension;
+
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use Xoops\SmartyExtensions\Extension\NavigationExtension;
+
+#[CoversClass(NavigationExtension::class)]
+final class NavigationExtensionTest extends TestCase
+{
+    private NavigationExtension $ext;
+
+    protected function setUp(): void
+    {
+        $this->ext = new NavigationExtension();
+    }
+
+    // ── Registry counts ─────────────────────────────────────
+
+    #[Test]
+    public function getFunctionsReturnsAllEightFunctions(): void
+    {
+        $functions = $this->ext->getFunctions();
+        $this->assertCount(8, $functions);
+        $this->assertArrayHasKey('generate_url', $functions);
+        $this->assertArrayHasKey('generate_canonical_url', $functions);
+        $this->assertArrayHasKey('url_segment', $functions);
+        $this->assertArrayHasKey('social_share', $functions);
+        $this->assertArrayHasKey('render_breadcrumbs', $functions);
+        $this->assertArrayHasKey('render_pagination', $functions);
+        $this->assertArrayHasKey('render_qr_code', $functions);
+        $this->assertArrayHasKey('render_alert', $functions);
+    }
+
+    #[Test]
+    public function getModifiersReturnsAllFiveModifiers(): void
+    {
+        $modifiers = $this->ext->getModifiers();
+        $this->assertCount(5, $modifiers);
+        $this->assertArrayHasKey('parse_url', $modifiers);
+        $this->assertArrayHasKey('strip_protocol', $modifiers);
+        $this->assertArrayHasKey('slugify', $modifiers);
+        $this->assertArrayHasKey('youtube_id', $modifiers);
+        $this->assertArrayHasKey('linkify', $modifiers);
+    }
+
+    // ── Modifier: slugify ───────────────────────────────────
+
+    #[Test]
+    public function slugifyConvertsTextToSlug(): void
+    {
+        $this->assertSame('hello-world', $this->ext->slugify('Hello World!'));
+    }
+
+    #[Test]
+    public function slugifyHandlesMultipleSpacesAndSpecialChars(): void
+    {
+        $this->assertSame('hello-world-xoops-cms', $this->ext->slugify('Hello World! XOOPS CMS'));
+    }
+
+    // ── Modifier: stripProtocol ─────────────────────────────
+
+    #[Test]
+    public function stripProtocolRemovesHttps(): void
+    {
+        $this->assertSame('xoops.org/page', $this->ext->stripProtocol('https://xoops.org/page'));
+    }
+
+    #[Test]
+    public function stripProtocolRemovesHttp(): void
+    {
+        $this->assertSame('xoops.org/page', $this->ext->stripProtocol('http://xoops.org/page'));
+    }
+
+    // ── Modifier: youtubeId ─────────────────────────────────
+
+    #[Test]
+    public function youtubeIdExtractsFromWatchUrl(): void
+    {
+        $this->assertSame('dQw4w9WgXcQ', $this->ext->youtubeId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
+    }
+
+    #[Test]
+    public function youtubeIdExtractsFromShortUrl(): void
+    {
+        $this->assertSame('dQw4w9WgXcQ', $this->ext->youtubeId('https://youtu.be/dQw4w9WgXcQ'));
+    }
+
+    #[Test]
+    public function youtubeIdExtractsFromEmbedUrl(): void
+    {
+        $this->assertSame('dQw4w9WgXcQ', $this->ext->youtubeId('https://www.youtube.com/embed/dQw4w9WgXcQ'));
+    }
+
+    #[Test]
+    public function youtubeIdReturnsEmptyForInvalidUrl(): void
+    {
+        $this->assertSame('', $this->ext->youtubeId('https://example.com'));
+    }
+
+    // ── Modifier: parseUrl ──────────────────────────────────
+
+    #[Test]
+    public function parseUrlReturnsComponents(): void
+    {
+        $result = $this->ext->parseUrl('https://xoops.org/path?q=1');
+        $this->assertIsArray($result);
+        $this->assertSame('xoops.org', $result['host']);
+        $this->assertSame('/path', $result['path']);
+        $this->assertSame('q=1', $result['query']);
+        $this->assertSame('https', $result['scheme']);
+    }
+
+    // ── Modifier: linkify ───────────────────────────────────
+
+    #[Test]
+    public function linkifyConvertsUrlsToAnchors(): void
+    {
+        $result = $this->ext->linkify('Visit https://xoops.org today');
+        $this->assertStringContainsString('<a href', $result);
+        $this->assertStringContainsString('https://xoops.org', $result);
+        $this->assertStringContainsString('target="_blank"', $result);
+    }
+
+    #[Test]
+    public function linkifyLeavesPlainTextAlone(): void
+    {
+        $this->assertSame('No links here', $this->ext->linkify('No links here'));
+    }
+
+    // ── Function: generateUrl ───────────────────────────────
+
+    #[Test]
+    public function generateUrlBuildsUrlWithParams(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $result = $this->ext->generateUrl(
+            ['route' => 'modules/news/article.php', 'params' => ['id' => '5']],
+            $tpl,
+        );
+        $this->assertSame('modules/news/article.php?id=5', $result);
+    }
+
+    #[Test]
+    public function generateUrlEncodesQueryParams(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $result = $this->ext->generateUrl(
+            ['route' => 'search.php', 'params' => ['q' => 'a&b']],
+            $tpl,
+        );
+        $this->assertStringContainsString('q=a%26b', $result);
+    }
+
+    #[Test]
+    public function generateUrlAssignsToTemplateVariable(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $tpl->expects($this->once())->method('assign')->with('myUrl', $this->isType('string'));
+
+        $result = $this->ext->generateUrl(
+            ['route' => 'index.php', 'assign' => 'myUrl'],
+            $tpl,
+        );
+        $this->assertSame('', $result);
+    }
+
+    // ── Function: renderAlert ───────────────────────────────
+
+    #[Test]
+    public function renderAlertOutputsBootstrapAlert(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $result = $this->ext->renderAlert(
+            ['message' => 'Saved!', 'type' => 'success'],
+            $tpl,
+        );
+        $this->assertStringContainsString('alert alert-success', $result);
+        $this->assertStringContainsString('Saved!', $result);
+    }
+
+    #[Test]
+    public function renderAlertReturnsEmptyForEmptyMessage(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $this->assertSame('', $this->ext->renderAlert(['message' => ''], $tpl));
+    }
+
+    #[Test]
+    public function renderAlertDismissibleIncludesCloseButton(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $result = $this->ext->renderAlert(
+            ['message' => 'Error!', 'type' => 'danger', 'dismissible' => true],
+            $tpl,
+        );
+        $this->assertStringContainsString('alert-dismissible', $result);
+        $this->assertStringContainsString('btn-close', $result);
+    }
+
+    // ── Function: renderBreadcrumbs ─────────────────────────
+
+    #[Test]
+    public function renderBreadcrumbsOutputsBootstrapNav(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $result = $this->ext->renderBreadcrumbs(
+            ['items' => ['/home' => 'Home', '' => 'Current']],
+            $tpl,
+        );
+        $this->assertStringContainsString('breadcrumb', $result);
+        $this->assertStringContainsString('Home', $result);
+        $this->assertStringContainsString('aria-current="page"', $result);
+    }
+
+    #[Test]
+    public function renderBreadcrumbsReturnsEmptyForNoItems(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $this->assertSame('', $this->ext->renderBreadcrumbs(['items' => []], $tpl));
+    }
+
+    // ── Function: renderPagination ──────────────────────────
+
+    #[Test]
+    public function renderPaginationOutputsBootstrapPagination(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $result = $this->ext->renderPagination(
+            ['totalPages' => 5, 'currentPage' => 2, 'urlPattern' => '?page={page}'],
+            $tpl,
+        );
+        $this->assertStringContainsString('pagination', $result);
+        $this->assertStringContainsString('active', $result);
+        $this->assertStringContainsString('aria-label="Previous"', $result);
+        $this->assertStringContainsString('aria-label="Next"', $result);
+    }
+
+    #[Test]
+    public function renderPaginationReturnsEmptyForSinglePage(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $this->assertSame('', $this->ext->renderPagination(['totalPages' => 1], $tpl));
+    }
+
+    // ── Function: renderQrCode ──────────────────────────────
+
+    #[Test]
+    public function renderQrCodeOutputsImgTag(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $result = $this->ext->renderQrCode(
+            ['text' => 'https://xoops.org', 'size' => 200],
+            $tpl,
+        );
+        $this->assertStringContainsString('<img src=', $result);
+        $this->assertStringContainsString('200', $result);
+        $this->assertStringContainsString('loading="lazy"', $result);
+    }
+
+    #[Test]
+    public function renderQrCodeReturnsEmptyForEmptyText(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $this->assertSame('', $this->ext->renderQrCode(['text' => ''], $tpl));
+    }
+
+    // ── Function: socialShare ───────────────────────────────
+
+    #[Test]
+    public function socialShareSinglePlatformReturnsLink(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $result = $this->ext->socialShare(
+            ['url' => 'https://xoops.org', 'title' => 'XOOPS', 'platform' => 'twitter'],
+            $tpl,
+        );
+        $this->assertStringContainsString('twitter.com', $result);
+    }
+
+    #[Test]
+    public function socialShareNoPlatformReturnsFullBar(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $result = $this->ext->socialShare(
+            ['url' => 'https://xoops.org', 'title' => 'XOOPS'],
+            $tpl,
+        );
+        $this->assertStringContainsString('social-share', $result);
+        $this->assertStringContainsString('Twitter', $result);
+        $this->assertStringContainsString('Facebook', $result);
+        $this->assertStringContainsString('LinkedIn', $result);
+    }
+
+    #[Test]
+    public function socialShareReturnsEmptyForEmptyUrl(): void
+    {
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $this->assertSame('', $this->ext->socialShare(['url' => ''], $tpl));
+    }
+
+    // ── Function: generateCanonicalUrl ──────────────────────
+
+    #[Test]
+    public function generateCanonicalUrlUsesServerFallback(): void
+    {
+        // Without XOOPS_URL defined, falls back to server vars
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $_SERVER['HTTPS'] = 'on';
+        $_SERVER['HTTP_HOST'] = 'example.com';
+
+        $result = $this->ext->generateCanonicalUrl(['path' => 'news/'], $tpl);
+
+        $this->assertStringContainsString('example.com/news/', $result);
+
+        unset($_SERVER['HTTPS'], $_SERVER['HTTP_HOST']);
+    }
+
+    #[Test]
+    public function generateCanonicalUrlAssignStoresRawUrl(): void
+    {
+        // Assign stores raw (unescaped) URL
+        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
+        $_SERVER['HTTPS'] = 'on';
+        $_SERVER['HTTP_HOST'] = 'example.com';
+
+        $tpl->expects($this->once())
+            ->method('assign')
+            ->with('canon', $this->callback(static function (string $value): bool {
+                // Raw URL, not htmlspecialchars-escaped
+                return str_contains($value, 'https://example.com/page');
+            }));
+
+        $result = $this->ext->generateCanonicalUrl(['path' => 'page', 'assign' => 'canon'], $tpl);
+        $this->assertSame('', $result);
+
+        unset($_SERVER['HTTPS'], $_SERVER['HTTP_HOST']);
+    }
+}

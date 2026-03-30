@@ -1,0 +1,60 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Xoops\SmartyExtensions\Test;
+
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use Xoops\SmartyExtensions\AbstractExtension;
+
+#[CoversClass(AbstractExtension::class)]
+final class AbstractExtensionTest extends TestCase
+{
+    #[Test]
+    public function defaultGettersReturnEmptyArrays(): void
+    {
+        $ext = new class extends AbstractExtension {};
+
+        $this->assertSame([], $ext->getModifiers());
+        $this->assertSame([], $ext->getFunctions());
+        $this->assertSame([], $ext->getBlockHandlers());
+    }
+
+    #[Test]
+    public function registerCallsRegisterPluginForEachType(): void
+    {
+        $ext = new class extends AbstractExtension {
+            public function getModifiers(): array
+            {
+                return ['my_mod' => strtolower(...)];
+            }
+            public function getFunctions(): array
+            {
+                return ['my_func' => fn(array $p, object $t): string => 'ok'];
+            }
+            public function getBlockHandlers(): array
+            {
+                return ['my_block' => fn(array $p, ?string $c, object $t, bool &$r): string => ''];
+            }
+        };
+
+        $smarty = new class {
+            /** @var list<array{string, string}> */
+            public array $calls = [];
+            public function registerPlugin(string $type, string $name, callable $callback): void
+            {
+                $this->calls[] = [$type, $name];
+            }
+        };
+
+        $ext->register($smarty);
+
+        $this->assertSame([
+            ['modifier', 'my_mod'],
+            ['function', 'my_func'],
+            ['block', 'my_block'],
+        ], $smarty->calls);
+    }
+}

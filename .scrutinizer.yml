@@ -1,0 +1,18 @@
+build:
+  environment:
+    php: 8.2
+  nodes:
+    analysis:
+      tests:
+        override:
+          - php-scrutinizer-run
+
+filter:
+  excluded_paths:
+    - '_archive/*'
+    - 'tests/*'
+    - 'vendor/*'
+    - 'docs/*'
+
+tools:
+  php_analyzer: true

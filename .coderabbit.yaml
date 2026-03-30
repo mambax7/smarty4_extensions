@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+tone_instructions: >-
+  Expert PHP code reviewer. Focus on type safety, PSR-12 compliance,
+  PHP 8.2+ compatibility, and security. This is a Smarty extension library
+  supporting PHP 8.2 through 8.5 with Smarty 4/5 dual compatibility.
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "src/**/*.php"
+      instructions: >-
+        Review for PHP 8.2+ best practices (readonly classes, constructor promotion,
+        match expressions, union types, named arguments). Check for proper use of
+        declare(strict_types=1), self:: for class constants, and PSR-12 code style.
+        Verify all output is properly escaped with htmlspecialchars().
+    - path: "tests/**/*.php"
+      instructions: >-
+        Review test code for proper assertions, test isolation, and edge
+        case coverage. Tests must work with PHPUnit 11.
+
+chat:
+  auto_reply: true
+
+tools:
+  phpcs:
+    enabled: true
+  phpstan:
+    enabled: true
+  gitleaks:
+    enabled: true
+  markdownlint:
+    enabled: true
+  yamllint:
+    enabled: true
+  github-checks:
+    enabled: true
+    timeout_ms: 90000
