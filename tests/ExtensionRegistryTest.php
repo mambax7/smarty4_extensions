@@ -106,6 +106,10 @@ final class ExtensionRegistryTest extends TestCase
     #[Test]
     public function registryIntegrationWithRealSmarty(): void
     {
+        if (!class_exists(\Smarty\Smarty::class) && !class_exists(\Smarty::class)) {
+            $this->markTestSkipped('No Smarty runtime available');
+        }
+
         $smarty = class_exists(\Smarty\Smarty::class) ? new \Smarty\Smarty() : new \Smarty();
         $smarty->setLeftDelimiter('<{');
         $smarty->setRightDelimiter('}>');
