@@ -27,3 +27,19 @@ interface BlockHandlerInterface
 namespace Smarty;
 
 class Template {}
+
+class Smarty
+{
+    public function registerPlugin(string $type, string $name, callable $callback): void {}
+
+    public function addExtension(object $extension): void {}
+
+    public function setLeftDelimiter(string $delimiter): void {}
+
+    public function setRightDelimiter(string $delimiter): void {}
+
+    /** @param mixed $value */
+    public function assign(string $name, mixed $value = null): void {}
+
+    public function fetch(string $template): string { return ''; }
+}
