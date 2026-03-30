@@ -10,7 +10,7 @@ Domain-grouped Smarty template plugins for [XOOPS CMS](https://xoops.org). Provi
 ## Installation
 
 ```bash
-composer require xoops/smarty-extensions
+composer require xoops/smartyextensions
 ```
 
 ## Usage

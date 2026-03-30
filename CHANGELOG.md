@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Initial Release
 
-Extracted from XOOPS Core 2.5 (`htdocs/xoops_lib/vendor/xoops/smarty-extensions/`) into a standalone Composer package.
+Extracted from XOOPS Core 2.5 (`htdocs/xoops_lib/vendor/xoops/smartyextensions/`) into a standalone Composer package.
 
 ### Features
 
