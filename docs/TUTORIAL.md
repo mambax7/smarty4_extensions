@@ -87,8 +87,8 @@ Some extensions are pure PHP and work in any Smarty environment. Others require 
 |-----------|:---:|---|
 | TextExtension | No | Pure PHP |
 | FormatExtension | No | Pure PHP (optional: `intl` extension for currency) |
-| NavigationExtension | Partial | `XOOPS_URL` for canonical URLs and module URLs; pure PHP otherwise |
-| DataExtension | Partial | `XOOPS_ROOT_PATH` for `base64_encode_file` boundary; pure PHP otherwise |
+| NavigationExtension | Partial | `XOOPS_URL` for `generate_canonical_url`; pure PHP otherwise |
+| DataExtension | Partial | `XOOPS_ROOT_PATH` or `DOCUMENT_ROOT` for `base64_encode_file` boundary; pure PHP otherwise |
 | FormExtension | Optional | `XoopsSecurity` for CSRF injection; works without it (no token) |
 | SecurityExtension | Yes | `XoopsSecurity`, `XoopsGroupPermHandler`, `$xoopsUser` global |
 | XoopsCoreExtension | Yes | `$xoopsConfig`, `$xoopsUser`, `xoops_getHandler()`, `XOOPS_URL` |
