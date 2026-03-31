@@ -1,0 +1,875 @@
+# XOOPS Smarty Extensions Tutorial
+
+This tutorial walks through practical usage of each extension in XOOPS templates. All examples use XOOPS Smarty delimiters (`<{` and `}>`).
+
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [Text Processing](#text-processing)
+- [Formatting Numbers, Dates, and Currency](#formatting-numbers-dates-and-currency)
+- [Navigation and URLs](#navigation-and-urls)
+- [Data Processing](#data-processing)
+- [Forms](#forms)
+- [Security and Permissions](#security-and-permissions)
+- [XOOPS Core Helpers](#xoops-core-helpers)
+- [Ray Debugging](#ray-debugging)
+- [Writing Your Own Extension](#writing-your-own-extension)
+
+---
+
+## Getting Started
+
+The extensions are registered automatically by the XOOPS bootstrap. Once loaded, all plugins are available in every `.tpl` template.
+
+There are three types of Smarty plugins:
+
+- **Modifiers** transform a value inline: `<{$variable|modifier_name}>`
+- **Functions** output content or assign values: `<{function_name param="value"}>`
+- **Blocks** wrap content conditionally: `<{block_name}>...<{/block_name}>`
+
+Most functions support an `assign` parameter that stores the result in a template variable instead of outputting it directly:
+
+```smarty
+<{generate_url route="/search" params=$queryParams assign="searchUrl"}>
+<a href="<{$searchUrl}>">Search</a>
+```
+
+---
+
+## Text Processing
+
+TextExtension provides modifiers for common text operations. These are pure PHP with no XOOPS dependencies.
+
+### Truncating text
+
+Use `excerpt` to truncate to a character limit (breaks at word boundaries):
+
+```smarty
+<{* Truncate to 150 characters with "..." suffix *}>
+<p><{$article.body|excerpt:150}></p>
+
+<{* Custom suffix *}>
+<p><{$article.body|excerpt:100:" [read more]"}></p>
+```
+
+Use `truncate_words` to limit by word count:
+
+```smarty
+<{* Show first 25 words *}>
+<p><{$article.body|truncate_words:25}></p>
+
+<{* Custom ending *}>
+<p><{$article.body|truncate_words:10:" ..."}></p>
+```
+
+### Converting newlines to paragraphs
+
+The `nl2p` modifier converts double newlines into `<p>` tags and single newlines into `<br>`:
+
+```smarty
+<{$userBio|nl2p}>
+```
+
+Input: `"First paragraph.\n\nSecond paragraph.\nWith a line break."`
+Output: `<p>First paragraph.</p><p>Second paragraph.<br>With a line break.</p>`
+
+### Highlighting search terms
+
+```smarty
+<{* Wrap matches in <span class="highlight"> *}>
+<{$article.title|highlight_text:$searchQuery}>
+
+<{* Custom CSS class *}>
+<{$article.body|highlight_text:$searchQuery:"search-match"}>
+```
+
+### Estimating reading time
+
+```smarty
+<span class="meta"><{$article.body|reading_time}></span>
+```
+
+Output: `3 min read`
+
+You can adjust the words-per-minute rate:
+
+```smarty
+<{$article.body|reading_time:250}>
+```
+
+### Pluralizing labels
+
+```smarty
+<{$commentCount}> <{$commentCount|pluralize:"comment"}>
+```
+
+Output for 1: `1 comment` | Output for 5: `5 comments`
+
+For irregular plurals:
+
+```smarty
+<{$childCount|pluralize:"child":"children"}>
+```
+
+### Extracting hashtags
+
+```smarty
+<{assign var="tags" value=$post.body|extract_hashtags}>
+<{foreach $tags as $tag}>
+  <a href="/tag/<{$tag}>"><{$tag}></a>
+<{/foreach}>
+```
+
+---
+
+## Formatting Numbers, Dates, and Currency
+
+FormatExtension handles display formatting for dates, numbers, and currency.
+
+### Date formatting
+
+The `format_date` modifier accepts a date string or Unix timestamp:
+
+```smarty
+<{* Default format: Y-m-d H:i:s *}>
+<{$article.created|format_date}>
+
+<{* Custom format *}>
+<{$article.created|format_date:"F j, Y"}>
+
+<{* From timestamp *}>
+<{$article.created|format_date:"M d, Y g:i A"}>
+```
+
+### Relative time
+
+```smarty
+<span class="timeago"><{$article.created|relative_time}></span>
+```
+
+Outputs contextual strings like `3 hours ago`, `2 days ago`, `Just now`, or `5 minutes from now` for future dates.
+
+### Currency formatting
+
+Uses the ICU NumberFormatter when the `intl` extension is available:
+
+```smarty
+<{* Default: USD, en_US *}>
+<{$product.price|format_currency}>
+
+<{* Euro in German locale *}>
+<{$product.price|format_currency:"EUR":"de_DE"}>
+
+<{* Fallback symbol when intl is not loaded *}>
+<{$product.price|format_currency:"GBP":"en_GB":"&pound;"}>
+```
+
+### Number formatting
+
+```smarty
+<{* Default: 2 decimals, period, comma *}>
+<{$stats.views|number_format}>
+
+<{* No decimals *}>
+<{$stats.views|number_format:0}>
+
+<{* European style *}>
+<{$stats.views|number_format:2:",":"."}>
+```
+
+### Byte sizes
+
+```smarty
+<{$file.size|bytes_format}>
+```
+
+Output: `1.45 MB`
+
+### Phone numbers
+
+```smarty
+<{$user.phone|format_phone_number}>
+```
+
+Input `"5551234567"` becomes `(555) 123-4567`. Input `"15551234567"` becomes `+1 (555) 123-4567`.
+
+### Gravatar URLs
+
+```smarty
+<img src="<{$user.email|gravatar}>" alt="Avatar">
+
+<{* Custom size and default *}>
+<img src="<{$user.email|gravatar:128:"identicon"}>" alt="Avatar">
+```
+
+### Date difference
+
+```smarty
+<{datetime_diff start="2024-01-01" end="2024-12-31" format="%m months, %d days"}>
+```
+
+### Current year (for copyright footers)
+
+```smarty
+<p>&copy; <{get_current_year}> XOOPS Project</p>
+```
+
+---
+
+## Navigation and URLs
+
+NavigationExtension provides URL manipulation, breadcrumbs, pagination, and social sharing.
+
+### Building URLs
+
+```smarty
+<{generate_url route="/modules/news/article.php" params=$queryParams assign="articleUrl"}>
+<a href="<{$articleUrl}>">Read article</a>
+```
+
+### Canonical URLs
+
+Builds a full URL using `XOOPS_URL`:
+
+```smarty
+<{generate_canonical_url path="modules/news/article.php?id=42" assign="canonical"}>
+<link rel="canonical" href="<{$canonical}>">
+```
+
+### URL segments
+
+Extract parts of the current request URI:
+
+```smarty
+<{* /modules/news/article.php => index 0 = "modules", 1 = "news" *}>
+<{url_segment index=1 assign="currentModule"}>
+```
+
+### Slugifying text
+
+```smarty
+<{$article.title|slugify}>
+```
+
+Input: `"Hello World! This is a Test"` becomes `hello-world-this-is-a-test`
+
+### Extracting YouTube video IDs
+
+```smarty
+<{$videoUrl|youtube_id}>
+```
+
+Works with `youtube.com/watch?v=`, `youtu.be/`, `youtube.com/embed/`, and `youtube.com/shorts/` URLs.
+
+### Making URLs clickable
+
+```smarty
+<{$comment.body|linkify}>
+```
+
+Converts plain URLs into `<a>` tags with `target="_blank"` and `rel="noopener noreferrer nofollow"`.
+
+### Removing protocol from URLs
+
+```smarty
+<{$website|strip_protocol}>
+```
+
+Input: `"https://example.com/page"` becomes `example.com/page`
+
+### Parsing URLs
+
+```smarty
+<{assign var="parts" value=$url|parse_url}>
+Host: <{$parts.host}>, Path: <{$parts.path}>
+```
+
+### Social sharing
+
+Generate a share bar with links to all platforms:
+
+```smarty
+<{social_share url=$articleUrl title=$article.title}>
+```
+
+Or get a link for a specific platform:
+
+```smarty
+<{social_share url=$articleUrl title=$article.title platform="twitter" assign="tweetUrl"}>
+<a href="<{$tweetUrl}>">Share on Twitter</a>
+```
+
+Supported platforms: `twitter`, `facebook`, `linkedin`, `reddit`, `email`.
+
+### Breadcrumbs
+
+Renders Bootstrap 5 breadcrumb navigation:
+
+```smarty
+<{assign var="crumbs" value=[
+    "/": "Home",
+    "/modules/news/": "News",
+    "#": "Current Article"
+]}>
+<{render_breadcrumbs items=$crumbs}>
+```
+
+The last item is rendered as the active (non-linked) breadcrumb.
+
+### Pagination
+
+Renders Bootstrap 5 pagination controls:
+
+```smarty
+<{render_pagination totalPages=$totalPages currentPage=$currentPage urlPattern="/news/?page={page}"}>
+```
+
+The `{page}` placeholder in `urlPattern` is replaced with each page number.
+
+### QR codes
+
+```smarty
+<{render_qr_code text="https://xoops.org" size=200}>
+```
+
+### Alert messages
+
+```smarty
+<{render_alert message="Settings saved successfully." type="success" dismissible=true}>
+```
+
+Types: `success`, `danger`, `warning`, `info`, `primary`, `secondary`.
+
+---
+
+## Data Processing
+
+DataExtension provides data manipulation, file utilities, and CSV/XML generation.
+
+### Filtering arrays
+
+```smarty
+<{assign var="activeUsers" value=$users|array_filter:"status":"active"}>
+<{foreach $activeUsers as $user}>
+  <{$user.name}>
+<{/foreach}>
+```
+
+### Sorting arrays
+
+```smarty
+<{* Sort by name ascending *}>
+<{assign var="sorted" value=$users|array_sort:"name"}>
+
+<{* Sort by date descending *}>
+<{assign var="sorted" value=$articles|array_sort:"created":"desc"}>
+
+<{* Simple value sort *}>
+<{assign var="sorted" value=$tags|array_sort}>
+```
+
+### JSON pretty-printing
+
+```smarty
+<pre><{$config|pretty_print_json}></pre>
+```
+
+Also works with JSON strings (decodes, then re-encodes with formatting).
+
+### File information
+
+```smarty
+<{$filePath|get_file_size}>    <{* Output: "1.45 MB" *}>
+<{$filePath|get_mime_type}>    <{* Output: "application/pdf" *}>
+<{$filePath|is_image}>         <{* Output: true/false *}>
+```
+
+### Stripping HTML comments
+
+```smarty
+<{$htmlContent|strip_html_comments}>
+```
+
+### CSV generation
+
+```smarty
+<{array_to_csv array=$rows separator="," assign="csvData"}>
+```
+
+### Embedding PDFs
+
+```smarty
+<{embed_pdf url="/uploads/report.pdf" width="100%" height="600"}>
+```
+
+### XML sitemap generation
+
+```smarty
+<{assign var="pages" value=[
+    ["url" => "https://example.com/", "lastmod" => "2024-01-01", "priority" => "1.0"],
+    ["url" => "https://example.com/about", "changefreq" => "monthly", "priority" => "0.8"]
+]}>
+<{generate_xml_sitemap pages=$pages assign="sitemap"}>
+```
+
+### Meta tag generation
+
+```smarty
+<{assign var="meta" value=[
+    "description" => "Page description here",
+    "keywords" => "xoops, cms, php",
+    "author" => "XOOPS Project"
+]}>
+<{generate_meta_tags config=$meta}>
+```
+
+### Session data
+
+```smarty
+<{get_session_data key="user_preference" assign="pref"}>
+```
+
+### HTTP referrer
+
+```smarty
+<{get_referrer assign="referrer"}>
+<{if $referrer}>
+  <p>You came from: <{$referrer}></p>
+<{/if}>
+```
+
+---
+
+## Forms
+
+FormExtension provides form rendering with automatic CSRF token injection.
+
+### Basic form
+
+```smarty
+<{form_open action="save.php" method="post" class="needs-validation"}>
+  <div class="mb-3">
+    <label for="title" class="form-label">Title</label>
+    <{form_input type="text" name="title" value=$article.title class="form-control" id="title" required="required"}>
+  </div>
+  <div class="mb-3">
+    <label for="email" class="form-label">Email</label>
+    <{form_input type="email" name="email" value=$user.email class="form-control" id="email"}>
+  </div>
+  <{create_button label="Save" type="submit" class="btn btn-primary"}>
+<{form_close}>
+```
+
+The `form_open` function automatically injects a hidden CSRF token field for POST forms when `XoopsSecurity` is available.
+
+### File upload form
+
+```smarty
+<{form_open action="upload.php" method="post" enctype="multipart/form-data"}>
+  <{form_input type="file" name="attachment" class="form-control"}>
+  <{create_button label="Upload" type="submit" class="btn btn-primary" icon="bi-upload"}>
+<{form_close}>
+```
+
+### Buttons with icons
+
+```smarty
+<{create_button label="Save" type="submit" class="btn btn-primary" icon="bi-check-lg"}>
+<{create_button label="Delete" type="button" class="btn btn-danger" icon="bi-trash"}>
+<{create_button label="Cancel" type="button" class="btn btn-secondary"}>
+```
+
+### Form validation
+
+Validate form data against rules and display errors:
+
+```smarty
+<{validate_form data=$formData rules=$validationRules assign="errors"}>
+
+<{if $errors}>
+  <{render_form_errors errors=$errors}>
+<{/if}>
+```
+
+Rules are defined as an associative array in PHP:
+
+```php
+$validationRules = [
+    'title' => ['required' => true, 'min_length' => 3, 'max_length' => 255],
+    'email' => ['required' => true, 'email' => true],
+    'age'   => ['numeric' => true],
+];
+```
+
+### Email validation
+
+```smarty
+<{validate_email email=$userEmail assign="isValid"}>
+<{if !$isValid}>
+  <{display_error message="Please enter a valid email address."}>
+<{/if}>
+```
+
+### Error display
+
+```smarty
+<{display_error message="Something went wrong. Please try again."}>
+```
+
+---
+
+## Security and Permissions
+
+SecurityExtension provides CSRF protection, permission checks, and string sanitization.
+
+### CSRF tokens
+
+Generate and validate CSRF tokens using the XOOPS security system:
+
+```smarty
+<{* Generate a token (usually handled by form_open) *}>
+<{generate_csrf_token}>
+
+<{* Validate on form submission *}>
+<{validate_csrf_token assign="isValid"}>
+```
+
+### Permission-based content
+
+Use the `xo_permission` block to conditionally show content:
+
+```smarty
+<{* Only for logged-in users *}>
+<{xo_permission logged_in=true}>
+  <p>Welcome back!</p>
+<{/xo_permission}>
+
+<{* Only for users with a specific permission *}>
+<{xo_permission require="module_admin" module_id=1}>
+  <a href="admin.php">Admin Panel</a>
+<{/xo_permission}>
+
+<{* Only for a specific group *}>
+<{xo_permission group=1}>
+  <p>Administrators only.</p>
+<{/xo_permission}>
+```
+
+### Permission check functions
+
+```smarty
+<{is_user_logged_in assign="loggedIn"}>
+
+<{has_user_permission permission="module_admin" module_id=1 item_id=0 assign="isAdmin"}>
+
+<{user_has_role role="1" assign="isInGroup"}>
+```
+
+### String sanitization
+
+```smarty
+<{* HTML entity encoding (XSS protection) *}>
+<{$userInput|sanitize_string}>
+
+<{* URL sanitization (blocks javascript:, data:, etc.) *}>
+<a href="<{$url|sanitize_url}>">Link</a>
+
+<{* Filename sanitization (strips everything except A-Za-z0-9-_.) *}>
+<{$uploadName|sanitize_filename}>
+
+<{* XML-safe encoding *}>
+<{$value|sanitize_string_for_xml}>
+```
+
+### Email privacy
+
+```smarty
+<{* Partially hide: "john.doe@example.com" => "jo***@example.com" *}>
+<{$user.email|mask_email}>
+
+<{* Convert to HTML entities to prevent harvesting *}>
+<a href="mailto:<{$user.email|obfuscate_text}>"><{$user.email|obfuscate_text}></a>
+```
+
+### Hashing
+
+```smarty
+<{$value|hash_string}>           <{* Default: SHA-256 *}>
+<{$value|hash_string:"md5"}>     <{* MD5 *}>
+<{$value|hash_string:"sha512"}>  <{* SHA-512 *}>
+```
+
+---
+
+## XOOPS Core Helpers
+
+XoopsCoreExtension provides template functions that interact with XOOPS configuration, users, and modules.
+
+### Site configuration
+
+```smarty
+<{xo_get_config name="sitename" assign="siteName"}>
+<title><{$siteName}></title>
+
+<{xo_get_config name="slogan" assign="slogan"}>
+<p><{$slogan}></p>
+```
+
+### Current user
+
+```smarty
+<{xo_get_current_user assign="user"}>
+<{if $user}>
+  <p>Hello, <{$user.uname}>!</p>
+  <{if $user.is_admin}>
+    <a href="admin.php">Admin</a>
+  <{/if}>
+<{else}>
+  <a href="user.php">Login</a>
+<{/if}>
+```
+
+The returned array contains: `uid`, `uname`, `name`, `email`, `groups`, `is_admin`.
+
+### Module information
+
+```smarty
+<{xo_get_module_info dirname="news" assign="mod"}>
+<{if $mod && $mod.isactive}>
+  <p><{$mod.name}> v<{$mod.version}></p>
+<{/if}>
+```
+
+### Module URLs
+
+```smarty
+<{xo_module_url module="news" path="article.php" params=$queryParams}>
+```
+
+Output: `/modules/news/article.php?id=42`
+
+### User avatars
+
+```smarty
+<{* By user ID (looks up XOOPS avatar, falls back to Gravatar) *}>
+<{xo_avatar uid=$userId size=64 class="rounded-circle"}>
+
+<{* By email (Gravatar only) *}>
+<{xo_avatar email=$userEmail size=48}>
+```
+
+### Notifications
+
+```smarty
+<{xo_get_notifications assign="notifications"}>
+<{if $notifications}>
+  <span class="badge"><{$notifications|@count}></span>
+<{/if}>
+```
+
+### Language constants
+
+The `translate` modifier looks up a XOOPS language constant:
+
+```smarty
+<{* If _MI_NEWS_TITLE is defined, outputs its value; otherwise outputs the literal string *}>
+<h1><{"_MI_NEWS_TITLE"|translate}></h1>
+```
+
+### Debug output
+
+Only renders when XOOPS debug mode is active:
+
+```smarty
+<{xo_debug var=$someVariable label="My Variable"}>
+```
+
+Renders as an expandable `<details>` element with a `<pre>` dump.
+
+### Module admin menu
+
+```smarty
+<{xo_render_menu module="news"}>
+```
+
+---
+
+## Ray Debugging
+
+RayDebugExtension sends template data to the [Ray](https://myray.app) desktop debugger. All functions silently no-op when Ray is not installed or the Debugbar RayLogger is disabled, so templates can safely contain Ray tags in production.
+
+### Sending values to Ray
+
+```smarty
+<{* Send a variable *}>
+<{ray value=$config}>
+
+<{* Send a message with color *}>
+<{ray msg="Reached the sidebar template" color="green"}>
+
+<{* Send with a label *}>
+<{ray value=$user label="Current User" color="blue"}>
+```
+
+### Pass-through modifier
+
+The `ray` modifier sends a value to Ray without changing the output:
+
+```smarty
+<{* Inspect a value inline without breaking the template *}>
+<p>Name: <{$user.name|ray:"Username"}></p>
+```
+
+### Dumping template context
+
+```smarty
+<{* Dump all template variables as a sorted table *}>
+<{ray_context}>
+
+<{* With a label and exclusion patterns *}>
+<{ray_context label="Before Loop" exclude="xoops_*,smarty"}>
+```
+
+### Variable dumps
+
+```smarty
+<{ray_dump value=$complexObject label="Config Dump"}>
+```
+
+### Table display
+
+```smarty
+<{ray_table value=$users label="User List"}>
+```
+
+---
+
+## Writing Your Own Extension
+
+### Step 1: Create the extension class
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace MyModule\Smarty;
+
+use Xoops\SmartyExtensions\AbstractExtension;
+
+final class MyModuleExtension extends AbstractExtension
+{
+    public function getModifiers(): array
+    {
+        return [
+            'format_status' => $this->formatStatus(...),
+        ];
+    }
+
+    public function getFunctions(): array
+    {
+        return [
+            'my_widget' => $this->myWidget(...),
+        ];
+    }
+
+    public function getBlockHandlers(): array
+    {
+        return [
+            'my_block' => $this->myBlock(...),
+        ];
+    }
+
+    /**
+     * Modifier: <{$status|format_status}>
+     */
+    public function formatStatus(string $status): string
+    {
+        return match ($status) {
+            'active' => '<span class="badge bg-success">Active</span>',
+            'inactive' => '<span class="badge bg-secondary">Inactive</span>',
+            'pending' => '<span class="badge bg-warning">Pending</span>',
+            default => \htmlspecialchars($status, ENT_QUOTES, 'UTF-8'),
+        };
+    }
+
+    /**
+     * Function: <{my_widget title="Hello" count=5}>
+     *
+     * @param array<string, mixed> $params  Template parameters
+     * @param object               $template Smarty template instance
+     */
+    public function myWidget(array $params, object $template): string
+    {
+        $title = \htmlspecialchars($params['title'] ?? '', ENT_QUOTES, 'UTF-8');
+        $count = (int) ($params['count'] ?? 0);
+
+        $html = '<div class="my-widget">';
+        $html .= '<h3>' . $title . '</h3>';
+        $html .= '<p>Count: ' . $count . '</p>';
+        $html .= '</div>';
+
+        if (!empty($params['assign'])) {
+            $template->assign($params['assign'], $html);
+            return '';
+        }
+
+        return $html;
+    }
+
+    /**
+     * Block: <{my_block role="admin"}>...content...<{/my_block}>
+     */
+    public function myBlock(array $params, ?string $content, object $template, bool &$repeat): string
+    {
+        if ($repeat || $content === null) {
+            return '';
+        }
+
+        $role = $params['role'] ?? '';
+        // Add your condition logic here
+
+        return '<div class="my-block">' . $content . '</div>';
+    }
+}
+```
+
+### Step 2: Register the extension
+
+```php
+use Xoops\SmartyExtensions\ExtensionRegistry;
+use MyModule\Smarty\MyModuleExtension;
+
+// Get the existing registry (or create one)
+$registry = new ExtensionRegistry();
+$registry->add(new MyModuleExtension());
+$registry->registerAll($smarty);
+```
+
+### Step 3: Use in templates
+
+```smarty
+<{* Modifier *}>
+<{$user.status|format_status}>
+
+<{* Function *}>
+<{my_widget title="Dashboard" count=$itemCount}>
+
+<{* Function with assign *}>
+<{my_widget title="Sidebar" count=3 assign="widgetHtml"}>
+<div class="sidebar"><{$widgetHtml}></div>
+
+<{* Block *}>
+<{my_block role="admin"}>
+  <p>Admin-only content here.</p>
+<{/my_block}>
+```
+
+### Key conventions
+
+- **Modifiers** receive the value as the first parameter, followed by any additional arguments
+- **Functions** receive `array $params` and `object $template`; return a string
+- **Block handlers** receive `array $params`, `?string $content`, `object $template`, and `bool &$repeat`; only process when `$content !== null` (closing tag)
+- Always escape output with `\htmlspecialchars($value, ENT_QUOTES, 'UTF-8')`
+- Support the `assign` parameter in functions for flexibility
+- The `ExtensionRegistry` handles Smarty 4/5 differences automatically
