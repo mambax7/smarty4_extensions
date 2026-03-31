@@ -2,9 +2,13 @@
 
 This tutorial walks through practical usage of each extension in XOOPS templates. All examples use XOOPS Smarty delimiters (`<{` and `}>`).
 
+For the full plugin reference table, see [README.md](../README.md).
+
 ## Table of Contents
 
 - [Getting Started](#getting-started)
+  - [Quick Start](#quick-start)
+  - [XOOPS Dependency Matrix](#xoops-dependency-matrix)
 - [Text Processing](#text-processing)
 - [Formatting Numbers, Dates, and Currency](#formatting-numbers-dates-and-currency)
 - [Navigation and URLs](#navigation-and-urls)
@@ -14,6 +18,8 @@ This tutorial walks through practical usage of each extension in XOOPS templates
 - [XOOPS Core Helpers](#xoops-core-helpers)
 - [Ray Debugging](#ray-debugging)
 - [Writing Your Own Extension](#writing-your-own-extension)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -49,6 +55,45 @@ $registry->registerAll($smarty);
 
 If XOOPS Core performs this registration in its bootstrap, all plugins will be available in every `.tpl` template without any additional setup in your module code.
 
+### Quick Start
+
+A minimal end-to-end example covering one plugin from each category:
+
+```smarty
+<{* Text modifier — pure PHP, works anywhere *}>
+<p><{$article.body|excerpt:200}></p>
+
+<{* URL builder — uses XOOPS_URL when defined *}>
+<{xo_module_url module="news" path="article.php" params=['id' => $article.id] assign="url"}>
+<a href="<{$url}>">Read more</a>
+
+<{* Form with automatic CSRF — requires XoopsSecurity *}>
+<{form_open action="save.php" method="post"}>
+  <{form_input type="text" name="title" value=$article.title class="form-control"}>
+  <{create_button label="Save" type="submit" class="btn btn-primary"}>
+<{form_close}>
+
+<{* Permission gate — requires XOOPS user/group system *}>
+<{xo_permission require="module_admin" module_id=1}>
+  <a href="admin.php">Admin Panel</a>
+<{/xo_permission}>
+```
+
+### XOOPS Dependency Matrix
+
+Some extensions are pure PHP and work in any Smarty environment. Others require XOOPS runtime objects or globals.
+
+| Extension | XOOPS Required? | Dependencies |
+|-----------|:---:|---|
+| TextExtension | No | Pure PHP |
+| FormatExtension | No | Pure PHP (optional: `intl` extension for currency) |
+| NavigationExtension | Partial | `XOOPS_URL` for canonical URLs and module URLs; pure PHP otherwise |
+| DataExtension | Partial | `XOOPS_ROOT_PATH` for `base64_encode_file` boundary; pure PHP otherwise |
+| FormExtension | Optional | `XoopsSecurity` for CSRF injection; works without it (no token) |
+| SecurityExtension | Yes | `XoopsSecurity`, `XoopsGroupPermHandler`, `$xoopsUser` global |
+| XoopsCoreExtension | Yes | `$xoopsConfig`, `$xoopsUser`, `xoops_getHandler()`, `XOOPS_URL` |
+| RayDebugExtension | Yes | Debugbar module with RayLogger enabled, `ray()` function |
+
 ### Plugin types
 
 There are three types of Smarty plugins:
@@ -57,11 +102,24 @@ There are three types of Smarty plugins:
 - **Functions** output content or assign values: `<{function_name param="value"}>`
 - **Blocks** wrap content conditionally: `<{block_name}>...<{/block_name}>`
 
+### Direct output vs `assign`
+
 Most functions support an `assign` parameter that stores the result in a template variable instead of outputting it directly:
 
 ```smarty
 <{generate_url route="/search" params=$queryParams assign="searchUrl"}>
 <a href="<{$searchUrl}>">Search</a>
+```
+
+**Important**: Functions that return boolean or structured data (like `validate_form`, `is_user_logged_in`, `has_user_permission`, `xo_get_current_user`) should always be used with `assign`. Their direct output is either empty or a stringified `'1'`/`''`, which is rarely useful in templates.
+
+```smarty
+<{* Wrong — direct output is just "1" or "" *}>
+<{is_user_logged_in}>
+
+<{* Right — assign and use as a condition *}>
+<{is_user_logged_in assign="loggedIn"}>
+<{if $loggedIn}>Welcome back!<{/if}>
 ```
 
 ---
@@ -548,7 +606,7 @@ The `form_open` function automatically injects a hidden CSRF token field for POS
 
 ### Form validation
 
-Validate form data against rules and display errors:
+Validate form data against rules and display errors. `validate_form` always returns an empty string — it is designed for `assign` usage only. The assigned value is an associative array of field names to error message arrays.
 
 ```smarty
 <{validate_form data=$formData rules=$validationRules assign="errors"}>
@@ -638,7 +696,7 @@ Use the `xo_permission` block to conditionally show content:
 <{* HTML entity encoding (XSS protection) *}>
 <{$userInput|sanitize_string}>
 
-<{* URL sanitization (blocks javascript:, data:, etc.) *}>
+<{* URL sanitization *}>
 <a href="<{$url|sanitize_url}>">Link</a>
 
 <{* Filename sanitization (strips everything except A-Za-z0-9-_.) *}>
@@ -647,6 +705,8 @@ Use the `xo_permission` block to conditionally show content:
 <{* XML-safe encoding *}>
 <{$value|sanitize_string_for_xml}>
 ```
+
+`sanitize_url` allows these schemes: `http://`, `https://`, `ftp://`, `mailto:`, relative paths (`/path`, `page.html`), and hash fragments (`#section`). All other schemes (including `javascript:`, `data:`, and entity-encoded variants) are blocked and return an empty string.
 
 ### Email privacy
 
@@ -965,3 +1025,36 @@ $registry->registerAll($smarty);
 - Always escape output with `\htmlspecialchars($value, ENT_QUOTES, 'UTF-8')`
 - Support the `assign` parameter in functions for flexibility
 - The `ExtensionRegistry` handles Smarty 4/5 differences automatically
+
+### Returning HTML from modifiers
+
+The `formatStatus()` example above intentionally returns `<span>` markup. This is a valid pattern when the modifier's purpose is to produce styled HTML. However, be deliberate about this choice:
+
+- If your modifier returns **HTML**, document it clearly and do not apply `|escape` after it in templates
+- If your modifier returns **plain text**, escape it inside the modifier so it is safe by default
+- Do not mix the two — a modifier should consistently return either raw HTML or plain text, never sometimes one and sometimes the other
+
+---
+
+## Best Practices
+
+- **Prefer `assign` for non-display data.** Boolean checks, structured data, and URLs are easier to work with as template variables than as direct output.
+- **Escape user input before building custom HTML.** The built-in functions escape parameters internally, but if you build HTML in PHP and pass it to a template, escape it there.
+- **Use `xo_permission` for display gating, not authorization.** Hiding a link does not prevent access to the URL. Always enforce permissions in PHP on the server side.
+- **Keep heavy business logic in PHP, not templates.** Extensions are for presentation. Complex queries, calculations, or state changes belong in module code.
+- **Treat file/path helpers as controlled-environment utilities.** `base64_encode_file`, `get_file_size`, and `get_mime_type` operate on local paths. Never pass user-supplied paths to them without validation.
+- **Do not double-escape.** If a function or modifier returns HTML (like `nl2p`, `highlight_text`, `linkify`, `render_breadcrumbs`, `render_alert`), do not apply `|escape` to its output — the tags will be visible as text.
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `generate_canonical_url` returns empty | `XOOPS_URL` is not defined | This function requires `XOOPS_URL`. It will not fall back to `HTTP_HOST`. |
+| `form_open` does not inject a CSRF token | `XoopsSecurity` was not passed to `FormExtension` | Pass the security object: `new FormExtension($xoopsSecurity)` |
+| `base64_encode_file` returns empty | File is outside the allowed root, or no root is available | The function only reads files under `XOOPS_ROOT_PATH` or `DOCUMENT_ROOT`. If neither is set, it fails closed. |
+| `xo_get_config`, `xo_get_current_user`, etc. return empty | XOOPS globals are unavailable | These functions depend on `$xoopsConfig`, `$xoopsUser`, and `xoops_getHandler()`. They return empty outside a XOOPS request context. |
+| `has_user_permission` always returns false | `XoopsGroupPermHandler` was not injected | Pass the handler: `new SecurityExtension($security, $grouppermHandler)` |
+| Ray functions produce no output | Expected — they send data to the Ray desktop app, not the browser | Check that the Debugbar module is active, RayLogger is enabled, and the `ray()` helper function is installed. |
+| Modifier output shows raw HTML tags | `\|escape` was applied after an HTML-producing modifier | Remove `\|escape` from `nl2p`, `highlight_text`, `linkify`, and similar modifiers that return markup. |
