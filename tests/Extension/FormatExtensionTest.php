@@ -158,6 +158,24 @@ final class FormatExtensionTest extends TestCase
     }
 
     #[Test]
+    public function relativeTimeReturnsFutureForFutureDates(): void
+    {
+        $futureTimestamp = \time() + 86400 * 3; // 3 days from now
+        $result = $this->ext->relativeTime($futureTimestamp);
+        $this->assertStringContainsString('from now', $result);
+        $this->assertStringNotContainsString('ago', $result);
+    }
+
+    #[Test]
+    public function relativeTimeReturnsPastForPastDates(): void
+    {
+        $pastTimestamp = \time() - 86400 * 3; // 3 days ago
+        $result = $this->ext->relativeTime($pastTimestamp);
+        $this->assertStringContainsString('ago', $result);
+        $this->assertStringNotContainsString('from now', $result);
+    }
+
+    #[Test]
     public function datetimeDiffCalculatesDifference(): void
     {
         $template = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();

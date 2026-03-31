@@ -28,18 +28,23 @@ if (!class_exists('XoopsSecurity', false)) {
 if (!class_exists('XoopsGroupPermHandler', false)) {
     class XoopsGroupPermHandler
     {
+        /**
+         * @param string       $gperm_name
+         * @param int          $gperm_itemid
+         * @param list<string> $gperm_groupid
+         * @param int          $gperm_modid
+         */
+        public function checkRight(string $gperm_name, int $gperm_itemid, array $gperm_groupid, int $gperm_modid = 1): bool
+        {
+            return false;
+        }
     }
 }
 
 if (!class_exists('XoopsUser', false)) {
     class XoopsUser
     {
-        public function isAdmin(): bool
-        {
-            return false;
-        }
-
-        public function hasPermission(string $perm): bool
+        public function isAdmin(int $moduleId = 0): bool
         {
             return false;
         }

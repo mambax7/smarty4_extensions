@@ -40,6 +40,18 @@ class XoopsSecurity
 
 class XoopsGroupPermHandler
 {
+    /**
+     * Check if a group has a specific permission.
+     *
+     * @param string       $gperm_name   Permission name
+     * @param int          $gperm_itemid Item ID
+     * @param list<string> $gperm_groupid Group IDs
+     * @param int          $gperm_modid  Module ID
+     */
+    public function checkRight(string $gperm_name, int $gperm_itemid, array $gperm_groupid, int $gperm_modid = 1): bool
+    {
+        return false;
+    }
 }
 
 /**

@@ -79,10 +79,19 @@ final class DataExtension extends AbstractExtension
             return '';
         }
 
-        // Prevent reading files outside the web root
         $realPath = \realpath($filePath);
         if ($realPath === false) {
             return '';
+        }
+
+        // Enforce web root boundary: only allow files under XOOPS_ROOT_PATH
+        // or the document root when running outside XOOPS
+        $webRoot = \defined('XOOPS_ROOT_PATH') ? (string) \constant('XOOPS_ROOT_PATH') : ($_SERVER['DOCUMENT_ROOT'] ?? '');
+        if ($webRoot !== '') {
+            $resolvedRoot = \realpath($webRoot);
+            if ($resolvedRoot === false || !\str_starts_with($realPath, $resolvedRoot . \DIRECTORY_SEPARATOR)) {
+                return '';
+            }
         }
 
         $result = \base64_encode(\file_get_contents($realPath));
@@ -240,7 +249,9 @@ final class DataExtension extends AbstractExtension
             }
         }
 
-        return \json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $result = \json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return $result !== false ? $result : '{}';
     }
 
     public function getFileSize(string $file): string

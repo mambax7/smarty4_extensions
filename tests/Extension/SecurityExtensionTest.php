@@ -118,6 +118,18 @@ final class SecurityExtensionTest extends TestCase
         $this->assertSame('', $this->ext->sanitizeUrl('javascript:alert(1)'));
     }
 
+    #[Test]
+    public function sanitizeUrlBlocksEntityEncodedJavascript(): void
+    {
+        $this->assertSame('', $this->ext->sanitizeUrl('javascript&#58;alert(1)'));
+    }
+
+    #[Test]
+    public function sanitizeUrlBlocksEntityEncodedJavascriptHex(): void
+    {
+        $this->assertSame('', $this->ext->sanitizeUrl('javascript&#x3a;alert(1)'));
+    }
+
     // ──────────────────────────────────────────────
     // Modifier: sanitize_filename
     // ──────────────────────────────────────────────

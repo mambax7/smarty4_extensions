@@ -152,6 +152,15 @@ final class DataExtensionTest extends TestCase
     }
 
     #[Test]
+    public function prettyPrintJsonReturnsEmptyObjectOnInvalidUtf8(): void
+    {
+        // \x80 is invalid UTF-8 — json_encode returns false
+        $result = $this->ext->prettyPrintJson("\x80");
+
+        $this->assertSame('{}', $result);
+    }
+
+    #[Test]
     public function isImageReturnsTrueForImageExtensions(): void
     {
         $this->assertTrue($this->ext->isImage('photo.png'));

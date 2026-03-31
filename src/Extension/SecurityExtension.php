@@ -99,16 +99,26 @@ final class SecurityExtension extends AbstractExtension
 
     /**
      * Check if the current user has a specific permission.
+     *
+     * Uses the injected XoopsGroupPermHandler to check group permissions
+     * via the XOOPS permission API, falling back to admin check only.
      */
     public function hasUserPermission(array $params, object $template): string
     {
         global $xoopsUser;
 
         $permission = $params['permission'] ?? '';
+        $moduleId = (int) ($params['module_id'] ?? 1);
+        $itemId = (int) ($params['item_id'] ?? 0);
         $result = false;
 
         if ($xoopsUser instanceof \XoopsUser && $permission !== '') {
-            $result = $xoopsUser->isAdmin() || $xoopsUser->hasPermission($permission);
+            if ($xoopsUser->isAdmin($moduleId)) {
+                $result = true;
+            } elseif ($this->grouppermHandler !== null) {
+                $groups = $xoopsUser->getGroups();
+                $result = $this->grouppermHandler->checkRight($permission, $itemId, $groups, $moduleId);
+            }
         }
 
         if (!empty($params['assign'])) {
@@ -173,19 +183,25 @@ final class SecurityExtension extends AbstractExtension
 
     /**
      * Sanitize a URL, removing illegal characters and blocking unsafe schemes.
+     *
+     * Decodes HTML entities before checking the scheme so that entity-encoded
+     * bypass attempts like "javascript&#58;alert(1)" are correctly blocked.
      */
     public function sanitizeUrl(string $url): string
     {
         $sanitized = \filter_var($url, FILTER_SANITIZE_URL);
 
+        // Decode HTML entities so encoded colons/schemes cannot bypass checks
+        $decoded = \html_entity_decode($sanitized, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
         // Only allow safe schemes
-        if (\preg_match('#^(https?|ftp|mailto)://#i', $sanitized) || \str_starts_with($sanitized, '/') || \str_starts_with($sanitized, '#')) {
-            return $sanitized;
+        if (\preg_match('#^(https?|ftp|mailto)://#i', $decoded) || \str_starts_with($decoded, '/') || \str_starts_with($decoded, '#')) {
+            return $decoded;
         }
 
         // Relative URLs without scheme are OK
-        if (!\str_contains($sanitized, ':')) {
-            return $sanitized;
+        if (!\str_contains($decoded, ':')) {
+            return $decoded;
         }
 
         return '';
@@ -280,8 +296,16 @@ final class SecurityExtension extends AbstractExtension
             if (!($xoopsUser instanceof \XoopsUser)) {
                 return '';
             }
-            if (!$xoopsUser->isAdmin() && !$xoopsUser->hasPermission($params['require'])) {
-                return '';
+            $moduleId = (int) ($params['module_id'] ?? 1);
+            $itemId = (int) ($params['item_id'] ?? 0);
+            if (!$xoopsUser->isAdmin($moduleId)) {
+                if ($this->grouppermHandler === null) {
+                    return '';
+                }
+                $groups = $xoopsUser->getGroups();
+                if (!$this->grouppermHandler->checkRight($params['require'], $itemId, $groups, $moduleId)) {
+                    return '';
+                }
             }
         }
 

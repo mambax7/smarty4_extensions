@@ -7,7 +7,3 @@ parameters:
     excludePaths:
         - tests/
     treatPhpDocTypesAsCertain: false
-    ignoreErrors:
-        -
-            identifier: property.onlyWritten
-            path: src/Extension/SecurityExtension.php

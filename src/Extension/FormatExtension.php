@@ -128,13 +128,15 @@ final class FormatExtension extends AbstractExtension
 
         $now = new \DateTimeImmutable();
         $diff = $now->diff($date);
+        $isFuture = (bool) $diff->invert === false && ($diff->y + $diff->m + $diff->d + $diff->h + $diff->i + $diff->s) > 0;
+        $suffix = $isFuture ? ' from now' : ' ago';
 
         return match (true) {
-            $diff->y > 0 => $diff->y . ' year' . ($diff->y > 1 ? 's' : '') . ' ago',
-            $diff->m > 0 => $diff->m . ' month' . ($diff->m > 1 ? 's' : '') . ' ago',
-            $diff->d > 0 => $diff->d . ' day' . ($diff->d > 1 ? 's' : '') . ' ago',
-            $diff->h > 0 => $diff->h . ' hour' . ($diff->h > 1 ? 's' : '') . ' ago',
-            $diff->i > 0 => $diff->i . ' minute' . ($diff->i > 1 ? 's' : '') . ' ago',
+            $diff->y > 0 => $diff->y . ' year' . ($diff->y > 1 ? 's' : '') . $suffix,
+            $diff->m > 0 => $diff->m . ' month' . ($diff->m > 1 ? 's' : '') . $suffix,
+            $diff->d > 0 => $diff->d . ' day' . ($diff->d > 1 ? 's' : '') . $suffix,
+            $diff->h > 0 => $diff->h . ' hour' . ($diff->h > 1 ? 's' : '') . $suffix,
+            $diff->i > 0 => $diff->i . ' minute' . ($diff->i > 1 ? 's' : '') . $suffix,
             default       => 'Just now',
         };
     }

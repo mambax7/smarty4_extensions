@@ -81,12 +81,12 @@ final class NavigationExtension extends AbstractExtension
     {
         $path = \ltrim($params['path'] ?? '', '/');
 
-        // Use XOOPS_URL if available, otherwise detect from server
+        // Use XOOPS_URL if available; refuse to build a canonical URL from
+        // untrusted HTTP_HOST to prevent host-header poisoning.
         if (\defined('XOOPS_URL')) {
             $baseUrl = \rtrim(XOOPS_URL, '/');
         } else {
-            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
-            $baseUrl = $protocol . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+            return '';
         }
 
         $result = $baseUrl . '/' . $path;

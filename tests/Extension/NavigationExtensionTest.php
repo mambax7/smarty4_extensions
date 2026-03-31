@@ -306,38 +306,13 @@ final class NavigationExtensionTest extends TestCase
     // ── Function: generateCanonicalUrl ──────────────────────
 
     #[Test]
-    public function generateCanonicalUrlUsesServerFallback(): void
+    public function generateCanonicalUrlReturnsEmptyWithoutXoopsUrl(): void
     {
-        // Without XOOPS_URL defined, falls back to server vars
+        // Without XOOPS_URL defined, refuses to use HTTP_HOST (host-header poisoning)
         $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
-        $_SERVER['HTTPS'] = 'on';
-        $_SERVER['HTTP_HOST'] = 'example.com';
 
         $result = $this->ext->generateCanonicalUrl(['path' => 'news/'], $tpl);
 
-        $this->assertStringContainsString('example.com/news/', $result);
-
-        unset($_SERVER['HTTPS'], $_SERVER['HTTP_HOST']);
-    }
-
-    #[Test]
-    public function generateCanonicalUrlAssignStoresRawUrl(): void
-    {
-        // Assign stores raw (unescaped) URL
-        $tpl = $this->getMockBuilder(\stdClass::class)->addMethods(['assign'])->getMock();
-        $_SERVER['HTTPS'] = 'on';
-        $_SERVER['HTTP_HOST'] = 'example.com';
-
-        $tpl->expects($this->once())
-            ->method('assign')
-            ->with('canon', $this->callback(static function (string $value): bool {
-                // Raw URL, not htmlspecialchars-escaped
-                return str_contains($value, 'https://example.com/page');
-            }));
-
-        $result = $this->ext->generateCanonicalUrl(['path' => 'page', 'assign' => 'canon'], $tpl);
         $this->assertSame('', $result);
-
-        unset($_SERVER['HTTPS'], $_SERVER['HTTP_HOST']);
     }
 }
