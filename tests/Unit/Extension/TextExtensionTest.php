@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Xoops\SmartyExtensions\Test\Extension;
+namespace Xoops\SmartyExtensions\Test\Unit\Extension;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -51,6 +51,15 @@ final class TextExtensionTest extends TestCase
     {
         $result = $this->ext->excerpt('The quick brown fox jumps', 15, ' [more]');
         $this->assertStringEndsWith(' [more]', $result);
+    }
+
+    #[Test]
+    public function excerptHandlesMultibyteCorrectly(): void
+    {
+        // Japanese string: 5 chars × 3 bytes each = 15 bytes; mb_strlen = 5
+        $text = 'あいうえおかきくけこ'; // 10 multibyte chars
+        $result = $this->ext->excerpt($text, 5);
+        $this->assertSame('あい...', $result);
     }
 
     #[Test]

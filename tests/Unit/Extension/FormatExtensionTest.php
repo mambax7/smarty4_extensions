@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Xoops\SmartyExtensions\Test\Extension;
+namespace Xoops\SmartyExtensions\Test\Unit\Extension;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Xoops\SmartyExtensions\Extension\FormatExtension;
+use Xoops\SmartyExtensions\Test\Stubs\TemplateStub;
 
 #[CoversClass(FormatExtension::class)]
 final class FormatExtensionTest extends TestCase
@@ -178,10 +179,10 @@ final class FormatExtensionTest extends TestCase
     #[Test]
     public function datetimeDiffCalculatesDifference(): void
     {
-        $template = $this->createMock(\Xoops\SmartyExtensions\Test\Stubs\TemplateStub::class);
+        $tpl = $this->createMock(TemplateStub::class);
         $result = $this->ext->datetimeDiff(
             ['start' => '2024-01-01', 'end' => '2026-03-20'],
-            $template,
+            $tpl,
         );
         $this->assertStringContainsString('2 years', $result);
     }
@@ -189,21 +190,21 @@ final class FormatExtensionTest extends TestCase
     #[Test]
     public function datetimeDiffReturnsEmptyForMissingParams(): void
     {
-        $template = $this->createMock(\Xoops\SmartyExtensions\Test\Stubs\TemplateStub::class);
-        $this->assertSame('', $this->ext->datetimeDiff([], $template));
+        $tpl = $this->createMock(TemplateStub::class);
+        $this->assertSame('', $this->ext->datetimeDiff([], $tpl));
     }
 
     #[Test]
     public function datetimeDiffAssignsToTemplate(): void
     {
-        $template = $this->createMock(\Xoops\SmartyExtensions\Test\Stubs\TemplateStub::class);
-        $template->expects($this->once())
+        $tpl = $this->createMock(TemplateStub::class);
+        $tpl->expects($this->once())
             ->method('assign')
             ->with('myVar', $this->isType('string'));
 
         $result = $this->ext->datetimeDiff(
             ['start' => '2024-01-01', 'end' => '2024-06-15', 'assign' => 'myVar'],
-            $template,
+            $tpl,
         );
         $this->assertSame('', $result);
     }
@@ -211,27 +212,27 @@ final class FormatExtensionTest extends TestCase
     #[Test]
     public function getCurrentYearReturnsCurrentYear(): void
     {
-        $template = $this->createMock(\Xoops\SmartyExtensions\Test\Stubs\TemplateStub::class);
-        $result = $this->ext->getCurrentYear([], $template);
+        $tpl = $this->createMock(TemplateStub::class);
+        $result = $this->ext->getCurrentYear([], $tpl);
         $this->assertSame(\date('Y'), $result);
     }
 
     #[Test]
     public function getCurrentYearAssignsToTemplate(): void
     {
-        $template = $this->createMock(\Xoops\SmartyExtensions\Test\Stubs\TemplateStub::class);
-        $template->expects($this->once())
+        $tpl = $this->createMock(TemplateStub::class);
+        $tpl->expects($this->once())
             ->method('assign')
             ->with('year', \date('Y'));
 
-        $result = $this->ext->getCurrentYear(['assign' => 'year'], $template);
+        $result = $this->ext->getCurrentYear(['assign' => 'year'], $tpl);
         $this->assertSame('', $result);
     }
 
     #[Test]
     public function formatCurrencyFallsBackWithoutIntl(): void
     {
-        // This test exercises the fallback path if intl is not loaded,
+        // Exercises the fallback path if intl is not loaded,
         // or the ICU path if it is — either way, it returns a string.
         $result = $this->ext->formatCurrency(1234.56);
         $this->assertNotEmpty($result);

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Xoops\SmartyExtensions\Test\Adapter;
+namespace Xoops\SmartyExtensions\Test\Unit\Adapter;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;

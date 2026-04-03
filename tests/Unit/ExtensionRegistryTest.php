@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Xoops\SmartyExtensions\Test;
+namespace Xoops\SmartyExtensions\Test\Unit;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -50,7 +50,6 @@ final class ExtensionRegistryTest extends TestCase
     #[Test]
     public function registerFallbackCallsRegisterPluginDirectly(): void
     {
-        // Test the Smarty 4 registration path via register() directly
         $ext = $this->createTestExtension();
 
         $smarty = new class {
@@ -70,11 +69,6 @@ final class ExtensionRegistryTest extends TestCase
     #[Test]
     public function registerAllSmarty4PathIteratesAllExtensions(): void
     {
-        // Exercises the Smarty 4 fallback: register() is called on each
-        // extension in sequence. Since the stub defines \Smarty\Extension\Base
-        // and registerAll() takes the Smarty 5 path, we test the Smarty 4
-        // loop logic by calling register() on each extension through the
-        // same iteration pattern.
         $ext1 = $this->createTestExtension();
         $ext2 = new class extends AbstractExtension {
             public function getFunctions(): array
@@ -92,7 +86,6 @@ final class ExtensionRegistryTest extends TestCase
             }
         };
 
-        // Simulate the Smarty 4 loop from registerAll()
         foreach ([$ext1, $ext2] as $ext) {
             $ext->register($smarty);
         }
@@ -114,7 +107,6 @@ final class ExtensionRegistryTest extends TestCase
         $smarty->setLeftDelimiter('<{');
         $smarty->setRightDelimiter('}>');
 
-        // Register via register() directly (Smarty 4 path)
         $text = new \Xoops\SmartyExtensions\Extension\TextExtension();
         $text->register($smarty);
 

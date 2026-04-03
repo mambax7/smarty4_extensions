@@ -64,6 +64,7 @@ final class DataExtension extends AbstractExtension
         \fclose($output);
 
         if (!empty($params['assign'])) {
+            // assign stores raw CSV; callers escape when embedding in HTML
             $template->assign($params['assign'], $result);
             return '';
         }
@@ -188,14 +189,15 @@ final class DataExtension extends AbstractExtension
 
     public function getReferrer(array $params, object $template): string
     {
-        $referrer = \htmlspecialchars($_SERVER['HTTP_REFERER'] ?? '', ENT_QUOTES, 'UTF-8');
+        $referrer = $_SERVER['HTTP_REFERER'] ?? '';
 
         if (!empty($params['assign'])) {
+            // assign stores raw value; callers escape when interpolating into HTML
             $template->assign($params['assign'], $referrer);
             return '';
         }
 
-        return $referrer;
+        return \htmlspecialchars($referrer, ENT_QUOTES, 'UTF-8');
     }
 
     public function getSessionData(array $params, object $template): string

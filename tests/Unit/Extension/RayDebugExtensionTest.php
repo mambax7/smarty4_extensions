@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Xoops\SmartyExtensions\Test\Extension;
+namespace Xoops\SmartyExtensions\Test\Unit\Extension;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Xoops\SmartyExtensions\Extension\RayDebugExtension;
+use Xoops\SmartyExtensions\Test\Stubs\TemplateStub;
 
 #[CoversClass(RayDebugExtension::class)]
 final class RayDebugExtensionTest extends TestCase
@@ -55,42 +56,42 @@ final class RayDebugExtensionTest extends TestCase
     #[Test]
     public function rayReturnsEmptyWhenRayUnavailable(): void
     {
-        $tpl = $this->createTemplateMock();
+        $tpl = $this->createMock(TemplateStub::class);
         $this->assertSame('', $this->ext->ray(['msg' => 'test'], $tpl));
     }
 
     #[Test]
     public function rayReturnsEmptyWithValueParam(): void
     {
-        $tpl = $this->createTemplateMock();
+        $tpl = $this->createMock(TemplateStub::class);
         $this->assertSame('', $this->ext->ray(['value' => 'hello', 'label' => 'L', 'color' => 'green'], $tpl));
     }
 
     #[Test]
     public function rayReturnsEmptyWhenNoDataProvided(): void
     {
-        $tpl = $this->createTemplateMock();
+        $tpl = $this->createMock(TemplateStub::class);
         $this->assertSame('', $this->ext->ray([], $tpl));
     }
 
     #[Test]
     public function rayContextReturnsEmptyWhenRayUnavailable(): void
     {
-        $tpl = $this->createTemplateMock();
+        $tpl = $this->createMock(TemplateStub::class);
         $this->assertSame('', $this->ext->rayContext([], $tpl));
     }
 
     #[Test]
     public function rayDumpReturnsEmptyWhenRayUnavailable(): void
     {
-        $tpl = $this->createTemplateMock();
+        $tpl = $this->createMock(TemplateStub::class);
         $this->assertSame('', $this->ext->rayDump(['value' => ['a' => 1]], $tpl));
     }
 
     #[Test]
     public function rayTableReturnsEmptyWhenRayUnavailable(): void
     {
-        $tpl = $this->createTemplateMock();
+        $tpl = $this->createMock(TemplateStub::class);
         $this->assertSame('', $this->ext->rayTable(['value' => [['a' => 1]]], $tpl));
     }
 
@@ -249,7 +250,6 @@ final class RayDebugExtensionTest extends TestCase
     #[Test]
     public function langReturnsConstantValueWhenDefined(): void
     {
-        // Define a test constant
         if (!\defined('_TEST_RAY_CONST')) {
             \define('_TEST_RAY_CONST', 'From Constant');
         }
@@ -262,14 +262,6 @@ final class RayDebugExtensionTest extends TestCase
     // ──────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────
-
-    /**
-     * @return \PHPUnit\Framework\MockObject\MockObject&object
-     */
-    private function createTemplateMock(): object
-    {
-        return $this->createMock(\Xoops\SmartyExtensions\Test\Stubs\TemplateStub::class);
-    }
 
     private function callPrivate(string $method, array $args): mixed
     {

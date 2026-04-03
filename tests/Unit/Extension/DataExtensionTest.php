@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Xoops\SmartyExtensions\Test\Extension;
+namespace Xoops\SmartyExtensions\Test\Unit\Extension;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Xoops\SmartyExtensions\Extension\DataExtension;
+use Xoops\SmartyExtensions\Test\Stubs\TemplateStub;
 
 #[CoversClass(DataExtension::class)]
 final class DataExtensionTest extends TestCase
@@ -136,7 +137,6 @@ final class DataExtensionTest extends TestCase
 
         $this->assertStringContainsString('"name": "XOOPS"', $result);
         $this->assertStringContainsString('"version": 2', $result);
-        // Pretty-print adds newlines
         $this->assertStringContainsString("\n", $result);
     }
 
@@ -212,11 +212,11 @@ final class DataExtensionTest extends TestCase
     #[Test]
     public function arrayToCsvConvertsTwoDimensionalArray(): void
     {
-        $template = $this->createMockTemplate();
+        $tpl = $this->createMock(TemplateStub::class);
 
         $result = $this->ext->arrayToCsv(
             ['array' => [['Alice', 30], ['Bob', 25]]],
-            $template,
+            $tpl,
         );
 
         $this->assertStringContainsString('Alice', $result);
@@ -226,9 +226,9 @@ final class DataExtensionTest extends TestCase
     #[Test]
     public function arrayToCsvReturnsEmptyForEmptyArray(): void
     {
-        $template = $this->createMockTemplate();
+        $tpl = $this->createMock(TemplateStub::class);
 
-        $result = $this->ext->arrayToCsv(['array' => []], $template);
+        $result = $this->ext->arrayToCsv(['array' => []], $tpl);
 
         $this->assertSame('', $result);
     }
@@ -236,14 +236,14 @@ final class DataExtensionTest extends TestCase
     #[Test]
     public function arrayToCsvAssignsToTemplateWhenAssignSet(): void
     {
-        $template = $this->createMockTemplate();
-        $template->expects($this->once())
+        $tpl = $this->createMock(TemplateStub::class);
+        $tpl->expects($this->once())
             ->method('assign')
             ->with('csv_output', $this->isType('string'));
 
         $result = $this->ext->arrayToCsv(
             ['array' => [['Alice', 30]], 'assign' => 'csv_output'],
-            $template,
+            $tpl,
         );
 
         $this->assertSame('', $result);
@@ -252,11 +252,11 @@ final class DataExtensionTest extends TestCase
     #[Test]
     public function embedPdfReturnsIframeHtml(): void
     {
-        $template = $this->createMockTemplate();
+        $tpl = $this->createMock(TemplateStub::class);
 
         $result = $this->ext->embedPdf(
             ['url' => 'uploads/doc.pdf', 'width' => '800', 'height' => '500'],
-            $template,
+            $tpl,
         );
 
         $this->assertStringContainsString('<iframe', $result);
@@ -268,9 +268,9 @@ final class DataExtensionTest extends TestCase
     #[Test]
     public function embedPdfReturnsEmptyForMissingUrl(): void
     {
-        $template = $this->createMockTemplate();
+        $tpl = $this->createMock(TemplateStub::class);
 
-        $result = $this->ext->embedPdf([], $template);
+        $result = $this->ext->embedPdf([], $tpl);
 
         $this->assertSame('', $result);
     }
@@ -278,12 +278,12 @@ final class DataExtensionTest extends TestCase
     #[Test]
     public function generateXmlSitemapProducesValidXml(): void
     {
-        $template = $this->createMockTemplate();
+        $tpl = $this->createMock(TemplateStub::class);
         $pages = [
             ['url' => 'https://example.com/', 'priority' => '1.0', 'lastmod' => '2026-03-20', 'changefreq' => 'daily'],
         ];
 
-        $result = $this->ext->generateXmlSitemap(['pages' => $pages], $template);
+        $result = $this->ext->generateXmlSitemap(['pages' => $pages], $tpl);
 
         $this->assertStringContainsString('<?xml version="1.0"', $result);
         $this->assertStringContainsString('<urlset', $result);
@@ -296,10 +296,10 @@ final class DataExtensionTest extends TestCase
     #[Test]
     public function generateMetaTagsProducesMetaElements(): void
     {
-        $template = $this->createMockTemplate();
+        $tpl = $this->createMock(TemplateStub::class);
         $config = ['description' => 'My page', 'robots' => 'index,follow'];
 
-        $result = $this->ext->generateMetaTags(['config' => $config], $template);
+        $result = $this->ext->generateMetaTags(['config' => $config], $tpl);
 
         $this->assertStringContainsString('<meta name="description" content="My page">', $result);
         $this->assertStringContainsString('<meta name="robots" content="index,follow">', $result);
@@ -308,9 +308,9 @@ final class DataExtensionTest extends TestCase
     #[Test]
     public function generateMetaTagsReturnsEmptyForEmptyConfig(): void
     {
-        $template = $this->createMockTemplate();
+        $tpl = $this->createMock(TemplateStub::class);
 
-        $result = $this->ext->generateMetaTags(['config' => []], $template);
+        $result = $this->ext->generateMetaTags(['config' => []], $tpl);
 
         $this->assertSame('', $result);
     }
@@ -318,38 +318,35 @@ final class DataExtensionTest extends TestCase
     #[Test]
     public function embedPdfAssignsWhenAssignSet(): void
     {
-        $template = $this->createMockTemplate();
-        $template->expects($this->once())
+        $tpl = $this->createMock(TemplateStub::class);
+        $tpl->expects($this->once())
             ->method('assign')
             ->with('pdf_html', $this->isType('string'));
 
         $result = $this->ext->embedPdf(
             ['url' => 'doc.pdf', 'assign' => 'pdf_html'],
-            $template,
+            $tpl,
         );
 
         $this->assertSame('', $result);
     }
 
     // ---------------------------------------------------------------
-    //  Helper
+    //  get_referrer: assign contract — raw value, not html-escaped
     // ---------------------------------------------------------------
 
-    /**
-     * @return \PHPUnit\Framework\MockObject\MockObject&object
-     */
-    private function createMockTemplate(): object
+    #[Test]
+    public function getReferrerAssignsRawValue(): void
     {
-        return $this->createMock(SmartyTemplateMock::class);
-    }
-}
+        $_SERVER['HTTP_REFERER'] = 'https://example.com/search?q=a&b=c';
+        $tpl = $this->createMock(TemplateStub::class);
+        $tpl->expects($this->once())
+            ->method('assign')
+            ->with('ref', 'https://example.com/search?q=a&b=c'); // raw, not html-escaped
 
-/**
- * Minimal interface for mocking Smarty template assign().
- *
- * @internal
- */
-abstract class SmartyTemplateMock
-{
-    abstract public function assign(string $name, mixed $value): void;
+        $result = $this->ext->getReferrer(['assign' => 'ref'], $tpl);
+
+        $this->assertSame('', $result);
+        unset($_SERVER['HTTP_REFERER']);
+    }
 }

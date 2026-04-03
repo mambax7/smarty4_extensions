@@ -14,6 +14,7 @@ For the full plugin reference table, see [README.md](../README.md).
 - [Navigation and URLs](#navigation-and-urls)
 - [Data Processing](#data-processing)
 - [Forms](#forms)
+  - [Recipe: Form Validation Pattern](#recipe-form-validation-pattern)
 - [Security and Permissions](#security-and-permissions)
 - [XOOPS Core Helpers](#xoops-core-helpers)
 - [Asset Management](#asset-management)
@@ -644,6 +645,103 @@ $validationRules = [
 ```smarty
 <{display_error message="Something went wrong. Please try again."}>
 ```
+
+---
+
+### Recipe: Form Validation Pattern
+
+This is the canonical end-to-end pattern for a validated POST form in an XOOPS module. Copy this as your starting point and adapt the rules to your field requirements.
+
+#### Why this pattern exists
+
+Four things are easy to get wrong when combining form rendering, CSRF protection, validation, and error display. This recipe shows all four in one place:
+
+1. `form_open` with `method="post"` is the entry point — it auto-injects the XOOPS CSRF hidden field when `XoopsSecurity` is passed to `FormExtension`. No manual token code required.
+2. `validate_form` → `render_form_errors` is a two-step, not one. `validate_form` **never produces output**; it only stores an errors array in the variable named by `assign`. Always pair it with `render_form_errors` or inspect `$errors` yourself.
+3. `assign` is mandatory for `validate_form`, not optional. Without it, the errors array is discarded silently and you have no way to display or act on validation failures.
+4. `min_length` and `max_length` use `mb_strlen` internally, not `strlen`. A Japanese module title like `ニュース記事` is 6 characters, not 18 bytes — the rules count characters correctly for all UTF-8 scripts.
+
+#### PHP controller (module's save.php)
+
+```php
+// Register extensions — FormExtension receives XoopsSecurity for CSRF
+$registry = new ExtensionRegistry();
+$registry->add(new FormExtension($xoopsSecurity));
+$registry->registerAll($xoops->tpl);
+
+// Pass raw POST data and rules to the template
+$xoops->tpl->assign('formData', $_POST);
+$xoops->tpl->assign('validationRules', [
+    'title' => ['required' => true, 'min_length' => 3, 'max_length' => 255],
+    'body'  => ['required' => true, 'min_length' => 10],
+    'email' => ['required' => true, 'email' => true],
+    'year'  => ['numeric' => true],
+]);
+```
+
+> **Why raw `$_POST` is correct here.** `validate_form` never outputs anything — it only reads values to apply rules. `form_input` applies `htmlspecialchars()` to the value attribute at render time. Pre-escaping `$_POST` before passing it in is the common mistake to avoid: it causes double-escaping (`&amp;lt;` in inputs) and inflates character counts so that `min_length` rules reject valid multibyte input. Pass raw POST data in; let the extension handle escaping at output.
+
+#### Template (module/templates/module_form.tpl)
+
+```smarty
+<{* Step 1 — run validation. assign is mandatory; validate_form produces no output. *}>
+<{validate_form data=$formData rules=$validationRules assign="errors"}>
+
+<{* Step 2 — display errors if any exist. *}>
+<{if $errors}>
+  <{render_form_errors errors=$errors}>
+<{/if}>
+
+<{* Step 3 — open form. CSRF token is injected automatically for POST. *}>
+<{form_open action="save.php" method="post" class="needs-validation"}>
+
+  <div class="mb-3">
+    <label for="title" class="form-label">Title</label>
+    <{form_input type="text" name="title" value=$formData.title
+        class="form-control" id="title" required="required"}>
+  </div>
+
+  <div class="mb-3">
+    <label for="body" class="form-label">Body</label>
+    <textarea name="body" class="form-control" rows="6"><{$formData.body|escape}></textarea>
+  </div>
+
+  <div class="mb-3">
+    <label for="email" class="form-label">Contact email</label>
+    <{form_input type="email" name="email" value=$formData.email
+        class="form-control" id="email"}>
+  </div>
+
+  <{create_button label="Save" type="submit" class="btn btn-primary" icon="bi-check-lg"}>
+  <{create_button label="Cancel" type="button" class="btn btn-secondary"}>
+
+<{form_close}>
+```
+
+#### GET forms must not use CSRF
+
+A GET form embeds its fields into the URL. A CSRF token in the URL is a security liability (it leaks in Referer headers and browser history). `form_open` is correct by design here: it only injects the token when `method="post"`.
+
+```smarty
+<{* No CSRF token injected — correct for GET *}>
+<{form_open action="search.php" method="get"}>
+  <{form_input type="search" name="q" value=$query class="form-control"}>
+  <{create_button label="Search" type="submit" class="btn btn-outline-secondary"}>
+<{form_close}>
+```
+
+#### Multibyte field lengths
+
+The `min_length` and `max_length` rules count **characters**, not bytes. You do not need to do anything special — the extension handles this internally. The table below shows why byte-counting would silently break non-Latin input:
+
+| Script | Example | Characters | UTF-8 bytes | `strlen` (wrong) | `mb_strlen` (correct) |
+|--------|---------|-----------|-------------|-----------------|----------------------|
+| ASCII | `Hello` | 5 | 5 | 5 | 5 |
+| Japanese | `ニュース` | 4 | 12 | 12 | 4 |
+| Arabic | `مرحبا` | 5 | 10 | 10 | 5 |
+| Emoji | `🌍🌎🌏` | 3 | 12 | 12 | 3 |
+
+If your module has a `max_length => 100` rule for a title field and a user enters 100 Japanese characters, `strlen` would report 300 and reject valid input. `mb_strlen` correctly reports 100 and accepts it.
 
 ---
 

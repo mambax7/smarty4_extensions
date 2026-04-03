@@ -209,10 +209,21 @@ final class SecurityExtension extends AbstractExtension
 
     /**
      * Remove unsafe characters from a filename.
+     *
+     * - Strips directory components via basename() first (eliminates traversal)
+     * - Removes all characters outside the safe allowlist
+     * - Trims leading dots to prevent hidden-file names (.htaccess, etc.)
      */
     public function sanitizeFilename(string $filename): string
     {
-        return \preg_replace('/[^A-Za-z0-9\-_.]/', '', $filename);
+        // Strip any directory component before character filtering
+        $filename = \basename($filename);
+
+        // Keep only safe characters
+        $filename = (string) \preg_replace('/[^A-Za-z0-9\-_.]/', '', $filename);
+
+        // Trim leading dots (prevents .htaccess-style hidden files from surviving)
+        return \ltrim($filename, '.');
     }
 
     /**

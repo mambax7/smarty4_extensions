@@ -106,8 +106,14 @@ final class FormExtension extends AbstractExtension
     /**
      * Renders an HTML button element.
      *
+     * Note: this function is an exception to the raw-in-assign contract.
+     * When `assign` is set, the stored value is already-escaped HTML markup,
+     * not raw data. Do not apply |escape or htmlspecialchars() when
+     * interpolating the assigned variable into a template.
+     *
      * Usage: <{create_button label="Save" type="submit" class="btn btn-primary"}>
      *        <{create_button label="Delete" type="button" class="btn btn-danger" icon="bi-trash"}>
+     *        <{create_button label="Save" type="submit" assign="saveBtn"}>  <{$saveBtn nofilter}>
      */
     public function createButton(array $params, object $template): string
     {
@@ -133,9 +139,15 @@ final class FormExtension extends AbstractExtension
     }
 
     /**
-     * Renders form validation errors as an HTML list.
+     * Renders form validation errors as a Bootstrap 5 alert list.
+     *
+     * Note: this function is an exception to the raw-in-assign contract.
+     * When `assign` is set, the stored value is already-escaped HTML markup,
+     * not raw data. Do not apply |escape or htmlspecialchars() when
+     * interpolating the assigned variable into a template.
      *
      * Usage: <{render_form_errors errors=$errors}>
+     *        <{render_form_errors errors=$errors assign="errHtml"}>  <{$errHtml nofilter}>
      */
     public function renderFormErrors(array $params, object $template): string
     {
@@ -167,11 +179,23 @@ final class FormExtension extends AbstractExtension
     }
 
     /**
-     * Validates form data against a set of rules. Returns errors array.
+     * Validates form data against a set of rules.
+     *
+     * This function always returns an empty string. Validation errors are
+     * only accessible via the `assign` parameter — the errors array is stored
+     * in the named template variable and never inlined as output. This is
+     * intentional: errors are structured data, not a string to interpolate.
      *
      * Usage: <{validate_form data=$formData rules=$validationRules assign="errors"}>
+     *        <{render_form_errors errors=$errors}>
      *
-     * Rules format: ['field_name' => ['required' => true, 'min_length' => 3, 'max_length' => 255, 'email' => true]]
+     * Rules format:
+     *   ['field_name' => ['required' => true, 'min_length' => 3, 'max_length' => 255, 'email' => true]]
+     *
+     * Supported rules: required, min_length, max_length (both use mb_strlen for UTF-8
+     * correctness), email, numeric.
+     *
+     * @return string Always ''
      */
     public function validateForm(array $params, object $template): string
     {
@@ -186,10 +210,10 @@ final class FormExtension extends AbstractExtension
                     'required' => $ruleValue && $value === ''
                         ? $errors[$field][] = 'This field is required'
                         : null,
-                    'min_length' => \is_string($value) && \strlen($value) < (int) $ruleValue
+                    'min_length' => \is_string($value) && \mb_strlen($value, 'UTF-8') < (int) $ruleValue
                         ? $errors[$field][] = "Minimum length is {$ruleValue} characters"
                         : null,
-                    'max_length' => \is_string($value) && \strlen($value) > (int) $ruleValue
+                    'max_length' => \is_string($value) && \mb_strlen($value, 'UTF-8') > (int) $ruleValue
                         ? $errors[$field][] = "Maximum length is {$ruleValue} characters"
                         : null,
                     'email' => $ruleValue && $value !== '' && \filter_var($value, FILTER_VALIDATE_EMAIL) === false
@@ -208,6 +232,8 @@ final class FormExtension extends AbstractExtension
             return '';
         }
 
+        // validateForm is a data-producing function, not a rendering function.
+        // Errors live in the assigned variable. There is no inline output path.
         return '';
     }
 
@@ -230,9 +256,15 @@ final class FormExtension extends AbstractExtension
     }
 
     /**
-     * Renders an error message in a styled div.
+     * Renders an error message in a styled Bootstrap 5 danger div.
+     *
+     * Note: this function is an exception to the raw-in-assign contract.
+     * When `assign` is set, the stored value is already-escaped HTML markup,
+     * not raw data. Do not apply |escape or htmlspecialchars() when
+     * interpolating the assigned variable into a template.
      *
      * Usage: <{display_error message="Something went wrong"}>
+     *        <{display_error message=$msg assign="errHtml"}>  <{$errHtml nofilter}>
      */
     public function displayError(array $params, object $template): string
     {

@@ -182,14 +182,13 @@ final class XoopsCoreExtension extends AbstractExtension
             $url .= '?' . \http_build_query($queryParams);
         }
 
-        $result = \htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
-
         if (!empty($params['assign'])) {
-            $template->assign($params['assign'], $result);
+            // assign stores the raw URL; callers escape when interpolating into HTML
+            $template->assign($params['assign'], $url);
             return '';
         }
 
-        return $result;
+        return \htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
     }
 
     /**

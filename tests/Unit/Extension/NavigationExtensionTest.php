@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Xoops\SmartyExtensions\Test\Extension;
+namespace Xoops\SmartyExtensions\Test\Unit\Extension;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -142,28 +142,22 @@ final class NavigationExtensionTest extends TestCase
             ['route' => 'modules/news/article.php', 'params' => ['id' => '5']],
             $tpl,
         );
+        // Direct output is HTML-escaped
         $this->assertSame('modules/news/article.php?id=5', $result);
     }
 
     #[Test]
-    public function generateUrlEncodesQueryParams(): void
+    public function generateUrlAssignsRawUrlToTemplateVariable(): void
     {
+        // assign stores the RAW url — no htmlspecialchars applied — so the
+        // caller can use it in href="<{$url|escape}>" without double-escaping.
         $tpl = $this->createMock(\Xoops\SmartyExtensions\Test\Stubs\TemplateStub::class);
-        $result = $this->ext->generateUrl(
-            ['route' => 'search.php', 'params' => ['q' => 'a&b']],
-            $tpl,
-        );
-        $this->assertStringContainsString('q=a%26b', $result);
-    }
-
-    #[Test]
-    public function generateUrlAssignsToTemplateVariable(): void
-    {
-        $tpl = $this->createMock(\Xoops\SmartyExtensions\Test\Stubs\TemplateStub::class);
-        $tpl->expects($this->once())->method('assign')->with('myUrl', $this->isType('string'));
+        $tpl->expects($this->once())
+            ->method('assign')
+            ->with('myUrl', 'search.php?q=a%26b');
 
         $result = $this->ext->generateUrl(
-            ['route' => 'index.php', 'assign' => 'myUrl'],
+            ['route' => 'search.php', 'params' => ['q' => 'a&b'], 'assign' => 'myUrl'],
             $tpl,
         );
         $this->assertSame('', $result);
@@ -308,11 +302,8 @@ final class NavigationExtensionTest extends TestCase
     #[Test]
     public function generateCanonicalUrlReturnsEmptyWithoutXoopsUrl(): void
     {
-        // Without XOOPS_URL defined, refuses to use HTTP_HOST (host-header poisoning)
         $tpl = $this->createMock(\Xoops\SmartyExtensions\Test\Stubs\TemplateStub::class);
-
         $result = $this->ext->generateCanonicalUrl(['path' => 'news/'], $tpl);
-
         $this->assertSame('', $result);
     }
 }

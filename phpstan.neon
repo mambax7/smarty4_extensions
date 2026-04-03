@@ -1,9 +1,10 @@
+includes:
+    - phpstan-baseline.neon
+
 parameters:
-    level: 5
+    level: max
     paths:
         - src
     scanDirectories:
-        - stubs
-    excludePaths:
-        - tests/
+        - tests/stubs
     treatPhpDocTypesAsCertain: false

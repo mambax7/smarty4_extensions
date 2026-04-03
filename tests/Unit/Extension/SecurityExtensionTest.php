@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Xoops\SmartyExtensions\Test\Extension;
-
-require_once \dirname(__DIR__) . '/stubs/XoopsStubs.php';
+namespace Xoops\SmartyExtensions\Test\Unit\Extension;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -135,15 +133,33 @@ final class SecurityExtensionTest extends TestCase
     // ──────────────────────────────────────────────
 
     #[Test]
-    public function sanitizeFilenameStripsUnsafeChars(): void
+    public function sanitizeFilenamePreservesCleanName(): void
     {
         $this->assertSame('report-2024_v2.pdf', $this->ext->sanitizeFilename('report-2024_v2.pdf'));
     }
 
     #[Test]
-    public function sanitizeFilenameRemovesPathTraversal(): void
+    public function sanitizeFilenameStripsDirectoryTraversal(): void
     {
-        $this->assertSame('....etcpasswd', $this->ext->sanitizeFilename('../../etc/passwd'));
+        // basename() removes the path component, leaving only 'passwd'
+        $this->assertSame('passwd', $this->ext->sanitizeFilename('../../etc/passwd'));
+    }
+
+    #[Test]
+    public function sanitizeFilenameStripsLeadingDots(): void
+    {
+        // basename('.htaccess') = '.htaccess', ltrim('.') = 'htaccess'
+        $this->assertSame('htaccess', $this->ext->sanitizeFilename('.htaccess'));
+    }
+
+    #[Test]
+    public function sanitizeFilenameRemovesSpecialCharsButPreservesDot(): void
+    {
+        // basename() is a no-op for a plain filename.
+        // The allowlist regex /[^A-Za-z0-9\-_.]/ strips <, >, |, ? but keeps the dot.
+        // ltrim('.') has nothing to remove here.
+        // Result: 'image.jpg' — the dot in the extension is preserved.
+        $this->assertSame('image.jpg', $this->ext->sanitizeFilename('image<>|?.jpg'));
     }
 
     // ──────────────────────────────────────────────
@@ -236,7 +252,7 @@ final class SecurityExtensionTest extends TestCase
     }
 
     #[Test]
-    public function generateCsrfTokenAssignsToVariable(): void
+    public function generateCsrfTokenAssignsHtmlToVariable(): void
     {
         $tpl = $this->createTemplateMock();
         $tpl->expects($this->once())
@@ -245,6 +261,14 @@ final class SecurityExtensionTest extends TestCase
 
         $result = $this->ext->generateCsrfToken(['assign' => 'myToken'], $tpl);
         $this->assertSame('', $result);
+    }
+
+    #[Test]
+    public function generateCsrfTokenReturnsEmptyWithNoSecurity(): void
+    {
+        $ext = new SecurityExtension(null, null);
+        $tpl = $this->createTemplateMock();
+        $this->assertSame('', $ext->generateCsrfToken([], $tpl));
     }
 
     // ──────────────────────────────────────────────
@@ -272,7 +296,7 @@ final class SecurityExtensionTest extends TestCase
     }
 
     // ──────────────────────────────────────────────
-    // Function: is_user_logged_in (no user set)
+    // Function: is_user_logged_in
     // ──────────────────────────────────────────────
 
     #[Test]
@@ -289,11 +313,18 @@ final class SecurityExtensionTest extends TestCase
     {
         $GLOBALS['xoopsUser'] = null;
         $tpl = $this->createTemplateMock();
-        $tpl->expects($this->once())
-            ->method('assign')
-            ->with('loggedIn', false);
-
+        $tpl->expects($this->once())->method('assign')->with('loggedIn', false);
         $this->ext->isUserLoggedIn(['assign' => 'loggedIn'], $tpl);
+    }
+
+    #[Test]
+    public function isUserLoggedInReturnsOneWhenUserSet(): void
+    {
+        $GLOBALS['xoopsUser'] = new \XoopsUser();
+        $tpl = $this->createTemplateMock();
+        $result = $this->ext->isUserLoggedIn([], $tpl);
+        $this->assertSame('1', $result);
+        $GLOBALS['xoopsUser'] = null;
     }
 
     // ──────────────────────────────────────────────
@@ -310,7 +341,7 @@ final class SecurityExtensionTest extends TestCase
     }
 
     // ──────────────────────────────────────────────
-    // Function: user_has_role (no user)
+    // Function: user_has_role
     // ──────────────────────────────────────────────
 
     #[Test]
